@@ -1,0 +1,16 @@
+{
+  "name": "todo-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "간단한 Todo 웹앱 모노레포 (React + Express)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend & npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend",
+    "start:backend": "npm run start --workspace=backend"
+  }
+}
