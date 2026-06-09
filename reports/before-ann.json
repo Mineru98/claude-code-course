@@ -1,0 +1,9 @@
+{
+  "title": "개선 전 — 기본 Todo UI",
+  "marks": [
+    { "selector": "form input", "label": "할 일 입력창 (비어있어도 추가 버튼 활성)" },
+    { "selector": "form button", "label": "추가 버튼 — 로딩/비활성 상태 없음" },
+    { "selector": "ul li:first-child input[type=checkbox]", "label": "완료 토글 체크박스" },
+    { "selector": "ul li:first-child button", "label": "삭제 버튼 — 확인 절차 없음" }
+  ]
+}

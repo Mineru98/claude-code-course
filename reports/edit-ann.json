@@ -1,0 +1,13 @@
+{
+  "url": "http://localhost:5174/",
+  "out": "screenshots/04-edit-annotated.png",
+  "actions": [
+    { "type": "dblclick", "selector": ".item:first-child .item-title" }
+  ],
+  "annotations": {
+    "title": "개선 후 — 인라인 편집 (UI-4)",
+    "marks": [
+      { "selector": ".item:first-child .edit-input", "label": "제목 더블클릭 → 인라인 편집 input (Enter 저장 / Esc 취소 / blur 저장)" }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  body { margin:0; background:#0f1117; color:#e7e9ee; font-family:"SF Mono",ui-monospace,Menlo,monospace; padding:28px; width:880px; }
+  h2 { font-family:system-ui; font-size:19px; margin:0 0 4px; }
+  .sub { font-family:system-ui; color:#9aa1ac; font-size:13px; margin-bottom:18px; }
+  .term { background:#171a21; border:1px solid #2a2f3a; border-radius:10px; overflow:hidden; margin-bottom:14px; }
+  .term-bar { background:#1d2129; padding:8px 12px; font-family:system-ui; font-size:12px; color:#9aa1ac; border-bottom:1px solid #2a2f3a; display:flex; gap:6px; align-items:center;}
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .term-body { padding:12px 14px; font-size:13px; line-height:1.7; white-space:pre-wrap; }
+  .cmd { color:#818cf8; }
+  .ok { color:#34d399; }
+  .bad { color:#fb7185; }
+  .hdr { color:#fbbf24; }
+  .muted { color:#9aa1ac; }
+  #ev-headers { border-color:#34d399; }
+  #ev-xpb { border-color:#34d399; }
+  #ev-valid { border-color:#fbbf24; }
+</style>
+</head>
+<body>
+  <h2 style="font-family:system-ui">🔐 백엔드 보안 강화 — 실측 증거</h2>
+  <div class="sub">http://localhost:4000 · 실제 curl 응답 (SEC-1~10 대응)</div>
+
+  <div class="term" id="ev-headers">
+    <div class="term-bar"><span class="dot" style="background:#fb7185"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span>&nbsp; 보안 HTTP 헤더 (helmet · SEC-2)</div>
+    <div class="term-body"><span class="cmd">$ curl -D - http://localhost:4000/api/todos</span>
+<span class="hdr">Content-Security-Policy</span>: default-src 'self'; object-src 'none'; …
+<span class="hdr">Strict-Transport-Security</span>: max-age=31536000; includeSubDomains
+<span class="hdr">X-Content-Type-Options</span>: nosniff
+<span class="hdr">X-Frame-Options</span>: SAMEORIGIN
+<span class="hdr">Referrer-Policy</span>: no-referrer   <span class="ok">✓ 적용됨</span></div>
+  </div>
+
+  <div class="term" id="ev-xpb">
+    <div class="term-bar"><span class="dot" style="background:#fb7185"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span>&nbsp; 프레임워크 정보 노출 제거 (SEC-2)</div>
+    <div class="term-body"><span class="cmd">$ curl -D - … | grep -i x-powered-by</span>
+<span class="muted">개선 전:</span> <span class="bad">X-Powered-By: Express</span>   <span class="bad">✗ 노출</span>
+<span class="muted">개선 후:</span> <span class="ok">(헤더 없음)</span>            <span class="ok">✓ 제거됨</span></div>
+  </div>
+
+  <div class="term" id="ev-valid">
+    <div class="term-bar"><span class="dot" style="background:#fb7185"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span>&nbsp; 입력 검증 · 에러 처리 (SEC-4~8)</div>
+    <div class="term-body"><span class="cmd">$ POST {"title":"   "}</span>            → <span class="ok">400</span> "title은 비어 있을 수 없습니다."
+<span class="cmd">$ POST {"title":"a"×250}</span>         → <span class="ok">400</span> "title은 최대 200자까지 가능합니다."
+<span class="cmd">$ POST '{bad'  (잘못된 JSON)</span>     → <span class="ok">400</span> "잘못된 JSON 형식입니다." <span class="muted">(스택 미노출)</span>
+<span class="cmd">$ PATCH /api/todos/abc</span>          → <span class="ok">400</span> "유효하지 않은 id입니다."
+<span class="cmd">$ PATCH /1 {"title":"  "}</span>       → <span class="ok">400</span> 빈 제목 덮어쓰기 방지
+<span class="cmd">$ DELETE /api/todos/99999</span>       → <span class="ok">404</span> "할 일을 찾을 수 없습니다."</div>
+  </div>
+</body>
+</html>

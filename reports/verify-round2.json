@@ -1,0 +1,114 @@
+{
+  "summary": "프론트 빌드 재검증 + 개선된 화면을 스크린샷으로 시각 검증 (별도 에이전트 병렬)",
+  "agentCount": 2,
+  "logs": [],
+  "result": {
+    "build": {
+      "passed": true,
+      "summary": "npm run build 실제 실행 결과 tsc 타입에러 없이 vite build가 종료코드 0으로 성공했고, CSS 산출물(dist/assets/index-DavNxbck.css, 5.76 kB)이 생성되었습니다. App.tsx, api.ts, styles.css 정적 확인 결과 import 경로/문법 이상 없음. 모두 통과.",
+      "checks": [
+        {
+          "name": "npm run build (tsc + vite)",
+          "ok": true,
+          "detail": "실제 실행 EXIT_CODE=0. 'tsc && vite build' 통과, 타입에러 없음. 출력: 32 modules transformed, index.html 0.39kB, index-DDM2y71h.js 148.53kB, vite v5.4.21 built in 217ms."
+        },
+        {
+          "name": "CSS 산출물 생성 확인",
+          "ok": true,
+          "detail": "dist/assets/index-DavNxbck.css 5.76 kB (gzip 1.83 kB) 생성됨. index-*.css 패턴 일치 확인."
+        },
+        {
+          "name": "App.tsx 정적 확인",
+          "ok": true,
+          "detail": "import 경로 정상: './api'에서 Todo, MAX_TITLE_LEN, fetchTodos, createTodo, updateTodo, deleteTodo 임포트 (api.ts 실제 export와 일치), './styles.css' 임포트 정상. JSX/훅 문법 이상 없음. srOnly: React.CSSProperties 타입 정상."
+        },
+        {
+          "name": "api.ts 정적 확인",
+          "ok": true,
+          "detail": "export interface Todo, export const MAX_TITLE_LEN, fetchTodos/createTodo/updateTodo/deleteTodo 함수 모두 정상 export. fetch 기반 BASE='/api/todos' 사용, 런타임 검증(assertTodo) 포함. import 없음, 문법 이상 없음."
+        },
+        {
+          "name": "styles.css 정적 확인",
+          "ok": true,
+          "detail": "CSS 변수, 미디어쿼리, @keyframes shimmer 정의 모두 닫힘. App.tsx에서 사용하는 클래스(app, card, header, form, input, filter, item, error, footer 등) 정의 존재. 문법 이상 없음."
+        }
+      ]
+    },
+    "screen": {
+      "passed": true,
+      "summary": "개선된 Todo 앱의 핵심 개선 사항이 모두 화면에 반영되어 있음을 시각 검증 및 코드 정적 확인으로 확인했습니다. 3개의 스크린샷(기본/완료필터/인라인편집)을 육안 확인했고, App.tsx에서 접근성 속성과 상태 처리도 모두 구현되어 있습니다. passed=true.",
+      "checks": [
+        {
+          "name": "기본 화면 - 카드형 디자인/그림자",
+          "ok": true,
+          "detail": "verify-default.png 육안 확인: 회색 배경 위에 흰색 라운드 카드(둥근 모서리 + 드롭 섀도)가 중앙 정렬되어 표시됨. 카드형 디자인과 그림자 명확히 보임."
+        },
+        {
+          "name": "헤더 '남은 일 N개' 배지",
+          "ok": true,
+          "detail": "헤더 우측에 '남은 일 2개' 텍스트가 둥근 외곽선 배지(pill) 형태로 표시됨. 좌측에는 📝 Todo 타이틀."
+        },
+        {
+          "name": "전체/진행중/완료 필터 탭",
+          "ok": true,
+          "detail": "입력폼 아래 '전체/진행중/완료' 3개 탭이 보이며, 활성 탭(전체)은 연보라 배경으로 강조됨."
+        },
+        {
+          "name": "각 항목 편집·삭제 버튼",
+          "ok": true,
+          "detail": "각 todo 항목 우측에 '편집'과 '삭제'(붉은 계열) 버튼이 보임. 3개 항목 모두에 표시."
+        },
+        {
+          "name": "하단 푸터 '전체 N개·완료 N개' / '완료 항목 삭제'",
+          "ok": true,
+          "detail": "카드 하단에 좌측 '전체 3개 · 완료 1개', 우측 '완료 항목 삭제' 버튼이 보임. completedCount>0 조건으로 노출."
+        },
+        {
+          "name": "완료 필터 동작 (취소선 항목만 표시)",
+          "ok": true,
+          "detail": "verify-filter.png 육안 확인: '완료' 탭이 연보라로 활성화되고, 체크된 'Todo 앱 만들기' 항목(취소선 적용) 1개만 리스트에 표시됨. 미완료 항목들은 사라짐."
+        },
+        {
+          "name": "인라인 편집 모드 (더블클릭 시 input 전환)",
+          "ok": true,
+          "detail": "verify-edit.png 육안 확인: 'Claude Code 배우기' 제목을 더블클릭하니 해당 행의 제목이 포커스된 편집용 input(보라 외곽선)으로 전환됨. 편집 중인 행은 '편집' 버튼이 숨겨지고 '삭제'만 남음."
+        },
+        {
+          "name": "role=alert (에러 영역)",
+          "ok": true,
+          "detail": "App.tsx L181: <div className=\"error\" role=\"alert\">로 에러 메시지 영역에 role=alert 적용됨."
+        },
+        {
+          "name": "aria-pressed (필터 탭)",
+          "ok": true,
+          "detail": "App.tsx L199: 필터 버튼에 aria-pressed={filter === f.key} 적용으로 활성 탭 상태 노출."
+        },
+        {
+          "name": "aria-label (버튼/체크박스/편집 input)",
+          "ok": true,
+          "detail": "체크박스 L237 `${title} 완료 표시`, 편집 input L251 '할 일 제목 편집', 편집 버튼 L268, 삭제 버튼 L277, 에러 닫기 L186 등 다수 aria-label 적용. 필터 그룹도 L193 aria-label=\"필터\"."
+        },
+        {
+          "name": "maxLength 처리",
+          "ok": true,
+          "detail": "신규 입력 L162 maxLength={MAX_TITLE_LEN}, 편집 input L244 maxLength={MAX_TITLE_LEN} 모두 적용. 입력 시 글자수 카운터(L165-169)도 표시."
+        },
+        {
+          "name": "disabled 처리",
+          "ok": true,
+          "detail": "추가 버튼 L174 disabled={!title.trim() || submitting} - 빈 입력이거나 제출 중일 때 비활성화. 제출 중엔 '추가 중…' 라벨."
+        },
+        {
+          "name": "로딩 skeleton",
+          "ok": true,
+          "detail": "App.tsx L207-213: loading 상태일 때 className=\"loading\" 안에 skeleton div 3개 + sr-only '불러오는 중' 텍스트를 aria-live=\"polite\"로 렌더."
+        },
+        {
+          "name": "빈 상태가 ul 외부로 분리",
+          "ok": true,
+          "detail": "L214-224: visible.length===0일 때 <p className=\"empty\">로 ul과 별개 분기 렌더. 필터별 빈 메시지 분기(완료/진행중/전체)도 구현. 실제 리스트는 L226 <ul> 분기로 완전히 분리됨."
+        }
+      ]
+    }
+  }
+}

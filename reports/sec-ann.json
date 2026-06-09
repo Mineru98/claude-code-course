@@ -1,0 +1,12 @@
+{
+  "url": "file:///Users/mineru/Documents/Github/claude-code-course/reports/security-evidence.html",
+  "out": "screenshots/05-backend-security.png",
+  "annotations": {
+    "title": "백엔드 보안 — mark 가이드",
+    "marks": [
+      { "selector": "#ev-headers", "label": "helmet 보안 헤더 5종 적용 (CSP/HSTS/nosniff 등)" },
+      { "selector": "#ev-xpb", "label": "X-Powered-By 제거 — 프레임워크 정보 은닉" },
+      { "selector": "#ev-valid", "label": "입력 검증·JSON 파싱 에러·잘못된 id 모두 400/404 + 스택 미노출" }
+    ]
+  }
+}

@@ -1,0 +1,230 @@
+{
+  "security": [
+    {
+      "id": "SEC-1",
+      "title": "CORS 전역 허용 (모든 출처 허용)",
+      "severity": "high",
+      "location": "packages/backend/src/index.js:7",
+      "problem": "app.use(cors()) 를 옵션 없이 호출하여 모든 출처(Access-Control-Allow-Origin: *)에서의 요청을 허용합니다. 임의의 웹사이트가 사용자 브라우저를 통해 이 API에 교차 출처 요청을 보낼 수 있어, 인증/세션이 추가될 경우 CSRF 및 데이터 탈취 위험이 커집니다. 현재도 모든 외부 사이트가 todos를 읽고 변조할 수 있습니다.",
+      "recommendation": "허용할 출처를 명시적 화이트리스트로 제한하세요. 예: cors({ origin: ['https://app.example.com'], methods: ['GET','POST','PATCH','DELETE'], credentials: false }). 환경변수(ALLOWED_ORIGINS)로 환경별 출처를 관리하고, 인증 도입 시 credentials와 origin을 정확히 짝지으세요."
+    },
+    {
+      "id": "SEC-2",
+      "title": "보안 HTTP 헤더 부재 (helmet 미적용)",
+      "severity": "medium",
+      "location": "packages/backend/src/index.js:4-8, packages/backend/package.json:11-14",
+      "problem": "helmet 등 보안 헤더 미들웨어가 없어 X-Content-Type-Options, X-Frame-Options/CSP, X-DNS-Prefetch-Control, Strict-Transport-Security 등 표준 보안 헤더가 응답에 포함되지 않습니다. 또한 Express 기본값으로 X-Powered-By: Express 헤더가 노출되어 프레임워크 정보가 새어나갑니다(정보 노출).",
+      "recommendation": "helmet을 의존성에 추가하고 app.use(helmet())을 적용하세요. 최소한 app.disable('x-powered-by')로 프레임워크 노출을 제거하세요."
+    },
+    {
+      "id": "SEC-3",
+      "title": "Rate Limiting 부재 (DoS/무차별 요청 가능)",
+      "severity": "high",
+      "location": "packages/backend/src/index.js:4-55",
+      "problem": "요청 속도 제한이 전혀 없습니다. 공격자가 POST /api/todos를 무한 반복하여 인메모리 todos 배열을 무제한 증가시켜 메모리를 고갈(DoS)시키거나, 전체 엔드포인트에 과부하를 줄 수 있습니다.",
+      "recommendation": "express-rate-limit 같은 미들웨어로 IP당 요청 수를 제한하세요(예: windowMs 15분, max 100). 쓰기 엔드포인트(POST/PATCH/DELETE)에는 더 엄격한 한도를 적용하고, 리버스 프록시(nginx) 레벨에서도 추가 제한을 두세요."
+    },
+    {
+      "id": "SEC-4",
+      "title": "입력 길이/타입 검증 부재 (무제한 title 저장)",
+      "severity": "high",
+      "location": "packages/backend/src/index.js:23-31, 34-44",
+      "problem": "POST와 PATCH 모두 title의 길이 상한이 없습니다. 공격자가 수 MB 길이의 문자열을 title로 전송해 메모리를 고갈시킬 수 있습니다. 또한 POST에서 title이 문자열이 아닌 경우(예: 숫자, 객체) title.trim() 호출 시 일관된 검증이 없고, completed 같은 추가 필드에 대한 화이트리스트 검증도 없어 의도치 않은 속성이 들어올 여지가 있습니다.",
+      "recommendation": "title을 문자열로 강제 검증하고 최대 길이(예: 1~200자)를 제한하세요. zod/joi 같은 스키마 검증기를 도입해 허용 필드만 통과시키고(allowlist), 타입·길이·필수 여부를 일괄 검증하세요. 예: if (typeof title !== 'string' || title.trim().length === 0 || title.length > 200) return res.status(400)..."
+    },
+    {
+      "id": "SEC-5",
+      "title": "Request body 크기 제한 부재",
+      "severity": "high",
+      "location": "packages/backend/src/index.js:8",
+      "problem": "express.json()을 옵션 없이 사용하면 기본 한도(100kb)는 있으나 명시적이지 않으며, 애플리케이션의 실제 필요(작은 todo 객체)에 비해 과도하게 큽니다. 명시적 제한이 없으면 대용량 페이로드 파싱으로 CPU/메모리를 소모하는 DoS 표면이 됩니다.",
+      "recommendation": "express.json({ limit: '10kb' })처럼 실제 필요에 맞는 작은 명시적 한도를 설정하세요. 프록시 레벨(client_max_body_size)에서도 추가로 제한하세요."
+    },
+    {
+      "id": "SEC-6",
+      "title": "전역 에러 핸들링 미들웨어 부재 및 비동기 예외 처리 누락",
+      "severity": "medium",
+      "location": "packages/backend/src/index.js:1-59",
+      "problem": "Express 4-인자 에러 핸들링 미들웨어가 없습니다. 잘못된 JSON 본문 전송 시 express.json()이 던지는 파싱 에러가 처리되지 않아 기본 에러 핸들러가 스택 트레이스를 응답에 노출할 수 있습니다(정보 노출). 또한 process 레벨 uncaughtException/unhandledRejection 핸들러가 없어 예기치 못한 오류로 프로세스가 죽으면 서비스 전체가 중단됩니다.",
+      "recommendation": "라우트 뒤에 4-인자 에러 핸들러 app.use((err, req, res, next) => {...})를 추가해 내부 오류 메시지를 숨기고 일반화된 메시지(예: 'Internal Server Error')와 적절한 상태코드를 반환하세요. NODE_ENV=production에서는 스택을 절대 노출하지 마세요. 정의되지 않은 경로용 404 핸들러도 추가하세요."
+    },
+    {
+      "id": "SEC-7",
+      "title": "PATCH에서 빈/공백 제목 허용으로 데이터 무결성 손상",
+      "severity": "medium",
+      "location": "packages/backend/src/index.js:40-41",
+      "problem": "PATCH 핸들러는 if (typeof title === 'string') todo.title = title.trim() 로 처리하여, title을 빈 문자열(\"\") 또는 공백만(\"   \")으로 보내면 todo.title이 빈 값으로 덮어써집니다. POST에서는 빈 제목을 막지만(line 25) PATCH에서는 막지 않아 검증 불일치가 발생하며, 빈 제목 todo가 생성되어 데이터 무결성과 클라이언트 UI가 깨질 수 있습니다.",
+      "recommendation": "PATCH에서도 title이 제공된 경우 trim 후 길이 검증을 수행하세요. 예: if (typeof title === 'string') { const t = title.trim(); if (t.length === 0 || t.length > 200) return res.status(400).json({error:'유효한 title이 필요합니다.'}); todo.title = t; }"
+    },
+    {
+      "id": "SEC-8",
+      "title": "경로 파라미터 id 타입/경계 검증 부재",
+      "severity": "low",
+      "location": "packages/backend/src/index.js:35, 48",
+      "problem": "id = Number(req.params.id)는 'abc' 같은 비숫자 입력에 대해 NaN을 만들고, 실수/음수/매우 큰 값도 그대로 통과합니다. NaN은 find/some에서 매칭되지 않아 우연히 404를 반환하지만, 입력이 명시적으로 검증되지 않아 잘못된 요청과 정상 요청을 구분하지 못하며 향후 저장소가 DB로 바뀌면 예기치 않은 쿼리 동작을 유발할 수 있습니다.",
+      "recommendation": "Number.isInteger() 등으로 양의 정수인지 명시적으로 검증하고, 유효하지 않으면 400 Bad Request를 반환하세요. 예: if (!Number.isInteger(id) || id <= 0) return res.status(400)..."
+    },
+    {
+      "id": "SEC-9",
+      "title": "클라이언트 측 입력 검증 부재 (서버 의존도 전가)",
+      "severity": "low",
+      "location": "packages/frontend/src/api.ts:15-36",
+      "problem": "createTodo와 updateTodo는 title의 길이·공백·타입을 검증하지 않고 그대로 서버로 전송합니다. 클라이언트 검증은 보안 경계가 아니지만, 부재 시 빈/과도한 입력이 서버로 직행하여 SEC-4/SEC-7 문제를 더 쉽게 유발합니다. 또한 에러 응답 본문(서버가 주는 구체 사유)을 사용하지 않고 고정 메시지만 던져 디버깅·UX가 저하됩니다.",
+      "recommendation": "클라이언트에서도 trim 후 빈 값 차단과 최대 길이 제한을 적용하세요(서버 검증의 보조 수단). 보안의 본질적 강제는 반드시 서버에서 수행하되, 클라이언트 검증은 UX 개선용으로 추가하세요."
+    },
+    {
+      "id": "SEC-10",
+      "title": "HTTPS/전송 보안 및 운영 강화 미흡",
+      "severity": "low",
+      "location": "packages/backend/src/index.js:57-59, packages/backend/package.json:7-10",
+      "problem": "서버가 평문 HTTP로 listen하며 TLS 종료나 보안 운영 설정(trust proxy, 환경별 분리)이 없습니다. 운영 환경에서 평문 통신은 중간자 공격에 노출되고, rate limiting 도입 시 app.set('trust proxy') 미설정으로 IP 식별이 잘못될 수 있습니다.",
+      "recommendation": "운영 환경에서는 리버스 프록시(nginx) 뒤에서 TLS를 종료하고 HSTS(helmet)를 적용하세요. 프록시 뒤에 둘 경우 app.set('trust proxy', 1)을 설정해 rate limiter가 실제 클라이언트 IP를 인식하도록 하세요."
+    }
+  ],
+  "ui": [
+    {
+      "id": "UI-1",
+      "title": "로딩 상태 부재",
+      "severity": "high",
+      "location": "App.tsx:15-17, 49-95",
+      "problem": "초기 fetchTodos() 호출 중 로딩 인디케이터가 전혀 없습니다. 데이터가 도착하기 전까지 빈 목록과 '할 일이 없습니다.' 메시지가 잘못 표시되어, 실제로 할 일이 있어도 사용자는 일시적으로 빈 상태를 보게 됩니다. 또한 추가/토글/삭제 등 비동기 작업 중 진행 상태 피드백이 없습니다.",
+      "recommendation": "isLoading state를 도입해 초기 로드 중에는 스켈레톤 또는 '불러오는 중...' 메시지를 표시하고, 로드 완료 후에만 빈 상태를 렌더링하세요. 각 비동기 작업에도 pending 상태(버튼 비활성화, 스피너)를 추가합니다."
+    },
+    {
+      "id": "UI-2",
+      "title": "빈 상태의 잘못된 마크업 (ul 안의 p)",
+      "severity": "high",
+      "location": "App.tsx:67-94 (특히 93)",
+      "problem": "<ul> 직계 자식으로 <li>가 아닌 <p>를 렌더링합니다(`{todos.length === 0 && <p>...</p>}`). HTML 사양상 ul/ol의 직계 자식은 li, script, template만 허용되므로 유효하지 않은 마크업이며 스크린리더와 접근성 트리에서 예측 불가능하게 동작합니다.",
+      "recommendation": "빈 상태를 <ul> 외부로 분리하세요. 예: `{todos.length === 0 ? <p style={...}>할 일이 없습니다.</p> : <ul>...</ul>}`. 빈 상태에는 적절한 일러스트/안내 문구와 role 고려를 추가합니다."
+    },
+    {
+      "id": "UI-3",
+      "title": "에러 메시지가 자동/수동으로 사라지지 않음",
+      "severity": "high",
+      "location": "App.tsx:13, 16, 27, 36, 45, 65",
+      "problem": "setError로 설정된 에러가 성공적인 후속 작업이 일어나도 초기화되지 않습니다. 예를 들어 추가에 한 번 실패한 뒤 다시 성공해도 이전 에러 문구가 그대로 화면에 남아 사용자에게 혼란을 줍니다. 닫기 버튼이나 타임아웃 자동 해제도 없습니다.",
+      "recommendation": "각 핸들러의 try 블록 시작 시 setError('')로 초기화하고, 성공 시에도 초기화하세요. 에러 알림에 닫기(X) 버튼을 제공하고, role=\"alert\" 또는 aria-live=\"assertive\"로 스크린리더에 즉시 전달되도록 합니다."
+    },
+    {
+      "id": "UI-4",
+      "title": "제목 인라인 편집 미지원",
+      "severity": "medium",
+      "location": "App.tsx:76-83, api.ts:25-36",
+      "problem": "api.ts의 updateTodo는 title 패치를 지원(`Partial<Pick<Todo, \"title\" | \"completed\">>`)하지만 UI에서는 완료 토글만 가능하고 제목 수정 기능이 전혀 없습니다. 한 번 잘못 입력한 할 일은 삭제 후 재작성해야 합니다.",
+      "recommendation": "항목 더블클릭 또는 편집 버튼으로 인라인 input 편집 모드를 추가하고, Enter 저장/Escape 취소, blur 시 저장 등의 표준 패턴을 구현하세요. 빈 제목 저장 방지와 트림 처리도 포함합니다."
+    },
+    {
+      "id": "UI-5",
+      "title": "완료 개수 표시 및 필터(전체/진행중/완료) 부재",
+      "severity": "medium",
+      "location": "App.tsx:49-95",
+      "problem": "전체/완료/남은 개수 요약이나 전체/진행중/완료 필터, '완료 항목 모두 삭제' 같은 일반적인 Todo 기능이 없습니다. 항목이 많아지면 관리가 어렵습니다.",
+      "recommendation": "'남은 N개' 카운터와 전체/진행중/완료 필터 탭을 추가하세요. 필터 버튼에는 aria-pressed로 현재 상태를 노출합니다."
+    },
+    {
+      "id": "UI-6",
+      "title": "삭제 확인 절차 부재",
+      "severity": "medium",
+      "location": "App.tsx:40-47, 85-90",
+      "problem": "삭제 버튼 클릭 즉시 항목이 영구 삭제되며 확인 단계나 실행 취소(Undo)가 없습니다. 실수로 누르면 데이터를 잃습니다.",
+      "recommendation": "확인 다이얼로그 또는 더 나은 UX로 '실행 취소' 토스트(낙관적 삭제 후 일정 시간 내 복구 가능)를 제공하세요. 최소한 window.confirm이라도 추가합니다."
+    },
+    {
+      "id": "UI-7",
+      "title": "추가 버튼 비활성화/중복 제출 방지 부재",
+      "severity": "medium",
+      "location": "App.tsx:19-29, 60-62",
+      "problem": "입력이 비었을 때(`!title.trim()`) 제출은 무시되지만 추가 버튼은 항상 활성 상태로 보여 시각적 피드백이 없습니다. 또한 createTodo 진행 중 버튼이 비활성화되지 않아 빠른 연타 시 중복 생성이 발생할 수 있습니다.",
+      "recommendation": "버튼에 `disabled={!title.trim() || isSubmitting}`를 적용하고, 제출 중에는 텍스트를 '추가 중...'으로 바꾸는 등 상태를 시각화하세요."
+    },
+    {
+      "id": "UI-8",
+      "title": "입력 트림(trim) 미적용으로 공백 제목 생성 가능",
+      "severity": "medium",
+      "location": "App.tsx:21-23, api.ts:15-22",
+      "problem": "제출 가드는 `title.trim()`로 빈 값을 막지만, 실제 createTodo(title)에는 트림하지 않은 원본 문자열을 전달합니다. '  할 일  '처럼 앞뒤 공백이 포함된 채 저장되어 정렬/표시에 문제가 생깁니다.",
+      "recommendation": "createTodo(title.trim())로 전달하거나, 트림된 값을 변수로 추출해 가드와 전송 모두에 사용하세요."
+    },
+    {
+      "id": "UI-9",
+      "title": "입력 길이 제한(maxLength) 부재",
+      "severity": "low",
+      "location": "App.tsx:54-59",
+      "problem": "input에 maxLength나 길이 검증이 없어 비정상적으로 긴 제목 입력이 가능하며, 레이아웃이 깨지거나 서버 검증 에러를 유발할 수 있습니다.",
+      "recommendation": "maxLength 속성(예: 200)과 남은 글자 수 힌트를 추가하고, 클라이언트 측에서 길이를 검증하세요."
+    },
+    {
+      "id": "UI-10",
+      "title": "폼 입력에 연결된 레이블(label) 부재",
+      "severity": "high",
+      "location": "App.tsx:53-63",
+      "problem": "제목 입력 input에 연결된 <label>이 없고 placeholder만 사용합니다. placeholder는 접근성 레이블을 대체하지 못하며, 입력 시 사라져 컨텍스트를 잃습니다. 스크린리더 사용자는 입력 용도를 알기 어렵습니다.",
+      "recommendation": "visually-hidden <label htmlFor> 또는 최소한 aria-label=\"할 일 제목\"을 input에 추가하세요. 폼에도 aria-label 또는 적절한 제목 연결을 고려합니다."
+    },
+    {
+      "id": "UI-11",
+      "title": "삭제 버튼의 접근 가능한 이름 모호",
+      "severity": "medium",
+      "location": "App.tsx:85-90",
+      "problem": "각 항목의 '삭제' 버튼 텍스트가 모두 동일해 스크린리더 사용자는 어떤 항목을 삭제하는지 구분할 수 없습니다. 또한 완료 체크박스에도 항목명을 포함한 접근 가능한 설명이 없습니다.",
+      "recommendation": "`aria-label={`${todo.title} 삭제`}`처럼 항목 제목을 포함시키세요. 체크박스도 label로 제목과 연결되어 있으나 완료 상태 변화는 aria-live나 명확한 레이블로 보강합니다."
+    },
+    {
+      "id": "UI-12",
+      "title": "에러 영역의 라이브 리전(aria-live) 부재",
+      "severity": "medium",
+      "location": "App.tsx:65",
+      "problem": "에러 <p>에 role/aria-live가 없어 동적으로 에러가 나타나도 스크린리더가 이를 알리지 않습니다. 시각장애 사용자는 작업 실패를 인지하지 못합니다.",
+      "recommendation": "에러 컨테이너에 role=\"alert\" 또는 aria-live=\"polite\"/\"assertive\"를 부여해 변경 시 자동 안내되도록 하세요."
+    },
+    {
+      "id": "UI-13",
+      "title": "전면 인라인 스타일로 인한 빈약한 시각 디자인 및 유지보수성 저하",
+      "severity": "medium",
+      "location": "App.tsx:50-124",
+      "problem": "모든 스타일이 인라인 style 객체로 작성되어 hover/focus/active 등 의사 클래스, 미디어쿼리, 다크모드, 트랜지션을 표현할 수 없습니다. 결과적으로 hover 피드백, 포커스 링, 부드러운 상태 전환 등 폴리시가 결여된 밋밋한 UI가 됩니다.",
+      "recommendation": "CSS Modules/Tailwind/styled 등으로 스타일을 분리하고, 버튼 hover/active, 포커스 가시성, 라운드/그림자/트랜지션 등 마이크로 인터랙션을 추가하세요. 디자인 토큰(색상/간격)을 도입해 일관성을 확보합니다."
+    },
+    {
+      "id": "UI-14",
+      "title": "키보드 포커스 가시성(focus ring) 및 포커스 관리 미흡",
+      "severity": "medium",
+      "location": "App.tsx:108, 118-123, 124",
+      "problem": "delBtn은 background transparent/border none으로 커스텀되었으나 :focus-visible 스타일이 정의되지 않아(인라인 한계) 키보드 포커스 위치가 불명확할 수 있습니다. 또한 항목 추가/삭제 후 포커스가 어디로 가는지 관리되지 않아 키보드 사용자의 흐름이 끊깁니다.",
+      "recommendation": "모든 인터랙티브 요소에 명확한 :focus-visible 윤곽선을 보장하고, 추가 후 입력 필드 재포커스, 삭제 후 인접 항목으로 포커스 이동 등 포커스 관리를 구현하세요."
+    },
+    {
+      "id": "UI-15",
+      "title": "다크모드 미지원 및 하드코딩된 색상",
+      "severity": "low",
+      "location": "App.tsx:79, 93, 99-124, index.html",
+      "problem": "#222/#999/#eee/#e44 등 색상이 라이트 테마 전제로 하드코딩되어 prefers-color-scheme: dark 환경에서 대비가 부적절하거나 가독성이 떨어집니다. index.html에도 color-scheme 선언이 없습니다.",
+      "recommendation": "CSS 변수와 prefers-color-scheme 미디어쿼리로 다크모드를 지원하고, index.html에 `<meta name=\"color-scheme\" content=\"light dark\">` 또는 CSS color-scheme를 선언하세요. 텍스트 대비는 WCAG AA(4.5:1)를 충족하도록 합니다."
+    },
+    {
+      "id": "UI-16",
+      "title": "반응형 레이아웃 최적화 미흡",
+      "severity": "low",
+      "location": "App.tsx:100-108",
+      "problem": "container는 maxWidth 480 고정에 padding만 있어 매우 작은 화면에서 form의 input+버튼 가로 배치가 좁아질 수 있고, 글자/터치 타겟 크기 조정이 없습니다. 버튼 터치 타겟이 권장 44px에 미달할 수 있습니다.",
+      "recommendation": "작은 화면에서의 간격/터치 타겟(최소 44x44px)을 보장하고, 필요 시 폼을 세로 배치로 전환하는 반응형 처리를 추가하세요."
+    },
+    {
+      "id": "UI-17",
+      "title": "낙관적 업데이트 부재 및 응답 타입 미검증",
+      "severity": "low",
+      "location": "App.tsx:31-47, api.ts:9-41",
+      "problem": "토글/삭제 시 서버 응답을 기다린 뒤에야 UI가 갱신되어 반응성이 떨어집니다. 또한 api.ts의 res.json() 결과를 타입 검증 없이 Todo로 단언해, 서버가 예상과 다른 형태를 반환하면 런타임 오류가 조용히 발생할 수 있습니다.",
+      "recommendation": "토글/삭제에 낙관적 업데이트(실패 시 롤백)를 도입해 체감 속도를 높이고, 응답에 대한 런타임 검증(zod 등) 또는 최소한의 형태 점검을 추가하세요."
+    },
+    {
+      "id": "UI-18",
+      "title": "체크박스 라벨 클릭 영역과 삭제 버튼의 시맨틱/순서 안내 부족",
+      "severity": "low",
+      "location": "App.tsx:69-91",
+      "problem": "각 li가 완료 상태에 대한 의미(예: 체크 시 '완료됨')를 보조 기술에 명확히 전달하지 못하고, 목록의 항목 수/위치 정보 안내가 없습니다. 완료 항목과 미완료 항목의 시각적 구분이 line-through/색상에만 의존합니다.",
+      "recommendation": "완료 상태를 색상뿐 아니라 텍스트(스크린리더용 '완료됨')나 아이콘으로도 전달하고, 목록 항목에 적절한 구조(예: 제목과 상태의 명확한 연결)를 부여하세요."
+    }
+  ]
+}
