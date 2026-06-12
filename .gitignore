@@ -1,3 +1,7 @@
 .omc
 .omx
 *.log
+.next
+node_modules
+.env*
+tsconfig*
