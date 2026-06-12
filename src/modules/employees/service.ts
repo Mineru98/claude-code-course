@@ -3,9 +3,8 @@ import type { Employee, EmployeeStatus } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { hashPassword } from '@/modules/auth/password'
 import { requirePermission, isAdmin } from '@/modules/rbac/permissions'
-import { destroyAllSessions } from '@/modules/auth/session'
 import { logAudit } from '@/modules/audit/audit'
-import { ConflictError, NotFoundError } from '@/lib/errors'
+import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/errors'
 import type { CreateEmployeeInput, UpdateEmployeeInput } from './schema'
 
 function genTempPassword(): string {
@@ -18,6 +17,22 @@ async function managedDepartmentIds(actorId: string): Promise<string[]> {
     select: { id: true },
   })
   return depts.map(d => d.id)
+}
+
+async function assertInScope(actorId: string, target: { departmentId: string | null }): Promise<void> {
+  if (await isAdmin(actorId)) return
+  const deptIds = await managedDepartmentIds(actorId)
+  if (!target.departmentId || !deptIds.includes(target.departmentId)) {
+    throw new ForbiddenError('범위 밖의 직원입니다.')
+  }
+}
+
+export async function getEmployee(actorId: string, id: string): Promise<Employee> {
+  await requirePermission(actorId, 'employee.read')
+  const emp = await prisma.employee.findUnique({ where: { id } })
+  if (!emp) throw new NotFoundError('직원을 찾을 수 없습니다.')
+  await assertInScope(actorId, emp)
+  return emp
 }
 
 export async function createEmployee(actorId: string, input: CreateEmployeeInput) {
@@ -74,6 +89,7 @@ export async function updateEmployee(actorId: string, targetId: string, input: U
   await requirePermission(actorId, 'employee.write')
   const target = await prisma.employee.findUnique({ where: { id: targetId } })
   if (!target) throw new NotFoundError('직원을 찾을 수 없습니다.')
+  await assertInScope(actorId, target)
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.employee.update({ where: { id: targetId }, data: input })
@@ -89,18 +105,17 @@ export async function transitionStatus(actorId: string, targetId: string, status
   await requirePermission(actorId, 'employee.write')
   const target = await prisma.employee.findUnique({ where: { id: targetId } })
   if (!target) throw new NotFoundError('직원을 찾을 수 없습니다.')
+  await assertInScope(actorId, target)
 
-  const updated = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const emp = await tx.employee.update({ where: { id: targetId }, data: { status } })
     await logAudit(tx, {
       actorId, action: 'employee.status', targetType: 'Employee', targetId,
       metadata: { status },
     })
+    if (status === 'OFFBOARDED') {
+      await tx.session.deleteMany({ where: { employeeId: targetId } })
+    }
     return emp
   })
-
-  if (status === 'OFFBOARDED') {
-    await destroyAllSessions(targetId)
-  }
-  return updated
 }

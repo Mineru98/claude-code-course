@@ -1,19 +1,15 @@
 import { handle } from '@/lib/route-handler'
 import { requireCurrentEmployee } from '@/modules/auth/current'
-import { updateEmployee } from '@/modules/employees/service'
+import { updateEmployee, getEmployee } from '@/modules/employees/service'
 import { updateEmployeeSchema } from '@/modules/employees/schema'
 import { toPublicEmployee } from '@/lib/serialize'
-import { prisma } from '@/lib/db'
-import { requirePermission } from '@/modules/rbac/permissions'
-import { ValidationError, NotFoundError } from '@/lib/errors'
+import { ValidationError } from '@/lib/errors'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return handle(async () => {
     const actor = await requireCurrentEmployee(req)
-    await requirePermission(actor.id, 'employee.read')
     const { id } = await params
-    const emp = await prisma.employee.findUnique({ where: { id } })
-    if (!emp) throw new NotFoundError('직원을 찾을 수 없습니다.')
+    const emp = await getEmployee(actor.id, id)
     return { employee: toPublicEmployee(emp) }
   })
 }

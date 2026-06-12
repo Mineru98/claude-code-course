@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createEmployee, listEmployees, updateEmployee, transitionStatus } from '@/modules/employees/service'
+import { createEmployee, listEmployees, updateEmployee, transitionStatus, getEmployee } from '@/modules/employees/service'
 import { seedRbac } from '@/../prisma/seed'
 import { prisma } from '@/lib/db'
 import { makeEmployee } from './helpers'
@@ -11,6 +11,15 @@ async function makeAdmin() {
   const role = await prisma.role.findUniqueOrThrow({ where: { name: 'Admin' } })
   await prisma.employeeRole.create({ data: { employeeId: admin.id, roleId: role.id } })
   return admin
+}
+
+async function makeManagerOfDept(deptName: string) {
+  const dept = await prisma.department.create({ data: { name: deptName } })
+  const role = await prisma.role.findUniqueOrThrow({ where: { name: 'Manager' } })
+  const mgr = await makeEmployee({ email: `mgr${Date.now()}_${deptName}@co.com`, departmentId: dept.id })
+  await prisma.employeeRole.create({ data: { employeeId: mgr.id, roleId: role.id } })
+  await prisma.department.update({ where: { id: dept.id }, data: { managerId: mgr.id } })
+  return { mgr, dept }
 }
 
 async function makeManager(deptId: string) {
@@ -90,5 +99,45 @@ describe('employee service', () => {
     const updated = await prisma.employee.findUnique({ where: { id: target.id } })
     expect(updated?.jobTitle).toBe('팀장')
     expect(await prisma.auditLog.count({ where: { action: 'employee.update' } })).toBe(1)
+  })
+
+  it('Manager는 본인 부서 직원을 getEmployee로 조회한다', async () => {
+    await makeAdmin()
+    const { mgr, dept } = await makeManagerOfDept('개발팀')
+    const member = await makeEmployee({ email: 'member@co.com', departmentId: dept.id })
+    const got = await getEmployee(mgr.id, member.id)
+    expect(got.id).toBe(member.id)
+  })
+
+  it('Manager가 범위 밖 직원을 getEmployee하면 ForbiddenError', async () => {
+    await makeAdmin()
+    const { mgr } = await makeManagerOfDept('개발팀')
+    const other = await prisma.department.create({ data: { name: '영업팀' } })
+    const outsider = await makeEmployee({ email: 'outsider@co.com', departmentId: other.id })
+    await expect(getEmployee(mgr.id, outsider.id)).rejects.toBeInstanceOf(ForbiddenError)
+  })
+
+  it('Manager가 범위 밖 직원을 수정하면 ForbiddenError', async () => {
+    await makeAdmin()
+    const { mgr } = await makeManagerOfDept('개발팀')
+    const other = await prisma.department.create({ data: { name: '영업팀' } })
+    const outsider = await makeEmployee({ email: 'out2@co.com', departmentId: other.id })
+    await expect(updateEmployee(mgr.id, outsider.id, { jobTitle: 'x' })).rejects.toBeInstanceOf(ForbiddenError)
+  })
+
+  it('Manager는 본인 부서 직원을 수정할 수 있다', async () => {
+    await makeAdmin()
+    const { mgr, dept } = await makeManagerOfDept('개발팀')
+    const member = await makeEmployee({ email: 'member2@co.com', departmentId: dept.id })
+    const updated = await updateEmployee(mgr.id, member.id, { jobTitle: '리드' })
+    expect(updated.jobTitle).toBe('리드')
+  })
+
+  it('Admin은 범위 제한 없이 임의 직원을 getEmployee한다', async () => {
+    const admin = await makeAdmin()
+    const dept = await prisma.department.create({ data: { name: '아무팀' } })
+    const anyEmp = await makeEmployee({ email: 'any@co.com', departmentId: dept.id })
+    const got = await getEmployee(admin.id, anyEmp.id)
+    expect(got.id).toBe(anyEmp.id)
   })
 })
