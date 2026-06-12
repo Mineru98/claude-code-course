@@ -1,8 +1,9 @@
 import type { Employee } from '@prisma/client'
 import { validateSession } from './session'
 import { AuthError } from '@/lib/errors'
+import { SESSION_COOKIE } from './cookie'
 
-export const SESSION_COOKIE = 'hr_session'
+export { SESSION_COOKIE }
 
 function readCookie(req: Request, name: string): string | undefined {
   const header = req.headers.get('cookie')
