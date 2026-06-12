@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { prisma } from '../src/lib/db'
 
 const PERMISSIONS = ['*', 'employee.read', 'employee.write', 'org.read', 'org.manage', 'rbac.manage', 'self.read', 'self.update']
@@ -26,6 +27,22 @@ export async function seedRbac() {
         update: {},
       })
     }
+  }
+
+  // 최초 Admin 계정 (멱등)
+  const adminEmail = 'admin@company.com'
+  const adminRole = await prisma.role.findUniqueOrThrow({ where: { name: 'Admin' } })
+  const existing = await prisma.employee.findUnique({ where: { email: adminEmail } })
+  if (!existing) {
+    const admin = await prisma.employee.create({
+      data: {
+        email: adminEmail,
+        name: '최초 관리자',
+        passwordHash: await bcrypt.hash('admin1234', 10),
+        mustChangePassword: true,
+      },
+    })
+    await prisma.employeeRole.create({ data: { employeeId: admin.id, roleId: adminRole.id } })
   }
 }
 
