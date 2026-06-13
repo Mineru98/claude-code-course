@@ -4,5 +4,7 @@
 .next
 node_modules
 .env*
-tsconfig*
-.claude/
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+dist
