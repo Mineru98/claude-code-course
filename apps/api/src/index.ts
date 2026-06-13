@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import type { CreateTodoInput, UpdateTodoInput } from "@todo/shared";
-import { todoStore } from "./store.js";
+import { todoStore } from "./todo.store.js";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
