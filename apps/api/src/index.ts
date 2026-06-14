@@ -2,12 +2,16 @@ import express from "express";
 import cors from "cors";
 import type { CreateTodoInput, UpdateTodoInput } from "@todo/shared";
 import { todoStore } from "./todo.store.js";
+import { logger } from "./lib/logger.js";
+import { requestLogger } from "./middleware/requestLogger.js";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
 
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -63,6 +67,12 @@ app.delete("/todos/:id", (req, res) => {
   res.status(204).end();
 });
 
+// 매칭되는 라우트가 없을 때 (404)
+app.use(notFoundHandler);
+
+// 중앙 에러 핸들러 (반드시 맨 마지막)
+app.use(errorHandler);
+
 app.listen(PORT, () => {
-  console.log(`✅ API 서버 실행 중: http://localhost:${PORT}`);
+  logger.info("API 서버 실행 중", { url: `http://localhost:${PORT}` });
 });
