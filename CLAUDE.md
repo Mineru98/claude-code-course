@@ -35,6 +35,7 @@ npm workspace 기반 학습용 모노레포. **Next.js(웹) + Express(API) + 공
 | `express-api.md` | `apps/api/**/*` | ESM(`.js`) · 상태코드 · 라우트↔store 계층 · 에러 처리 |
 | `nextjs-web.md` | `apps/web/**/*` | 서버/클라 경계 · `lib/api` 경유 · 특수 파일 |
 | `shared-types.md` | `packages/shared/**/*` | 순수 타입 · 네이밍 계약 · barrel 구조 |
+| `logging.md` | `apps/**/*` | 시스템 로깅 — 레벨·구조적 JSON·로거 위치·레이어별 로깅 지점 |
 
 `.claude/rules/` 의 `.md` 는 **자동 발견**되므로 `@import` 가 필요 없다. 새 규칙은 파일을 추가하고 `paths` 만 선언하면 된다 — SSOT 는 항상 `.claude/rules` 다. `paths` 를 생략하면 모든 세션에 항상 로드된다.
 
