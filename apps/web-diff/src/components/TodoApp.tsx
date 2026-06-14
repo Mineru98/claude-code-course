@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Todo } from "@todo/shared";
 import { todoApi } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export default function TodoApp() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -34,7 +35,11 @@ export default function TodoApp() {
       const created = await todoApi.create({ title: value });
       setTodos((prev) => [created, ...prev]);
       setTitle("");
+      logger.info("할 일 추가", { id: created.id });
     } catch (e) {
+      logger.error("할 일 추가 실패", {
+        message: e instanceof Error ? e.message : String(e),
+      });
       setError(e instanceof Error ? e.message : "추가 실패");
     }
   }
@@ -45,7 +50,12 @@ export default function TodoApp() {
         completed: !todo.completed,
       });
       setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      logger.info("할 일 토글", { id: updated.id, completed: updated.completed });
     } catch (e) {
+      logger.error("할 일 토글 실패", {
+        id: todo.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
       setError(e instanceof Error ? e.message : "수정 실패");
     }
   }
@@ -54,7 +64,12 @@ export default function TodoApp() {
     try {
       await todoApi.remove(id);
       setTodos((prev) => prev.filter((t) => t.id !== id));
+      logger.info("할 일 삭제", { id });
     } catch (e) {
+      logger.error("할 일 삭제 실패", {
+        id,
+        message: e instanceof Error ? e.message : String(e),
+      });
       setError(e instanceof Error ? e.message : "삭제 실패");
     }
   }

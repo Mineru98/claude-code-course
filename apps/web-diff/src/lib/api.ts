@@ -3,11 +3,16 @@ import type {
   CreateTodoInput,
   UpdateTodoInput,
 } from "@todo/shared";
+import { logger } from "@/lib/logger";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = init?.method ?? "GET";
+  // API 호출 추적 — 요청 직전 기록
+  logger.debug("API 요청", { method, path });
+
   const res = await fetch(`${API_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
@@ -16,6 +21,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
+    // 실패 응답을 throw 하기 전에 기록
+    logger.error("API 요청 실패", { method, path, status: res.status });
     throw new Error(body?.error ?? `요청 실패 (${res.status})`);
   }
 
