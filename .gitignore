@@ -1,9 +1,39 @@
+# OMC / OMX
 .omc
 .omx
+
+# Logs
 *.log
-.next
+npm-debug.log*
+pnpm-debug.log*
+
+# Dependencies
 node_modules
-.env*
-tsconfig*
+
+# Next.js / build output
+.next
+out
+dist
+build
+
+# Turborepo
+.turbo
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# TypeScript build cache / generated
+*.tsbuildinfo
+next-env.d.ts
+
+# File-based todo store (local data)
+.data
+
+# Editor / OS
 .claude/
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
